@@ -1,6 +1,6 @@
 ---
 name: product-intelligence-brief
-version: "0.6.0"  # 0.6.0: Format B redesign (晨报摘要+🔥三级标题卡片), HTML template + auto-publish to Hermes HTML Manager
+version: "0.8.1"  # 0.8.1: HTML 生成改为强制性——每次 cron 必须执行，不可跳过
 description: Daily 3-signal (or 5-item WeChat brief) strategic intelligence for a social/dating product PM. Curates actionable signals from AI-native products, social app mechanics, and youth behavior shifts.
 author: hermes-agent
 tags: [intelligence, signals, social-product, pm, daily-brief, dating, wechat-morning-brief]
@@ -88,6 +88,7 @@ Used when the user asks for "社交产品玩法雷达" or "微信晨报". Output
 - 每条末尾必须附加 `🕐 [新鲜度标记] · [时间来源]`，新鲜度按 ⏱️ 时间约束规则判定
 - 同一事件被多个来源报道时，在「📌 新变化」末尾合并标注 `（另见：[来源名]）`
 - 过去 3 天内已报告过的同一产品事件不再重复输出，除非有重大进展
+- **不同产品必须独立成条**：禁止仅因属于同一产品类别而合并为一条。典型错误：把 Replika 和 Character.AI 合成一条「AI 陪伴产品动态」——两者产品机制不同，必须分开独立分析
 
 ## 📡 Signal source priority
 
@@ -108,38 +109,41 @@ Used when the user asks for "社交产品玩法雷达" or "微信晨报". Output
 
 ## ⏱️ 时间约束（新鲜度优先，但不丢失信息）
 
-1. **初始搜索**：对每个信号源（`web_search`），首先尝试 **过去 24 小时**。
-   - `web_search` 设置 `time_range: "day"`。
+1. **初始搜索**：对每个信号源（如 `web_search`），首先尝试 **过去 24 小时**（`time_range: "day"` 或 `qdr:d`）。
 2. **结果数量判断**：
    - 如果该信号源返回的相关结果 ≥ 2 条 → 直接采用，标记「🟢 最新」。
-   - 如果相关结果 < 2 条 → 自动放宽到 **过去 7 天**（`time_range: "week"`），标记「🟡 近 7 天」。
-   - 如果仍然 < 2 条 → 放宽到 **过去 30 天**（`time_range: "month"`），标记「🟠 近 30 天」。
-3. **特殊信源（官方新闻室、头部竞品官网）**：始终抓取最新发布的文章（不设时间窗口），但仅取 top 1。标记「🔵 官方最新」。
+- 如果相关结果 < 2 条 → 自动放宽到 **过去 7 天**（`time_range: "week"`），标记「🟡 近7天」。
+   - 如果仍然 < 2 条 → 放宽到 **过去 30 天**（`time_range: "month"`），标记「🟠 近30天」。
+3. **特殊信源（官方新闻室、头部竞品官网）**：始终抓取最新发布的文章（不设时间窗口），但仅取 top 1。
 4. **兜底**：如果某个类别（如 AI 社交产品）完全无结果，则从 `references/curated-search-queries.md` 中回退到经典案例，并标注「📌 近期无动态，此为趋势回顾」。
-5. **输出标注**：每条情报末尾注明时间来源，例如 `（2026-05-22 报道）` 或 `（过去 7 天内趋势）`。
+5. **输出标注**：每条情报末尾注明时间来源。格式：`🟡 近7天 · 来自 YYYY-MM-DD 数据验证`（非当天报道时用实际数据日期替代"近7天"文字）。当天报道用 `🟢 最新 · YYYY-MM-DD 报道`。
 
 ## 🔗 去重与合并规则（必须严格执行）
 
-### 会话内去重
+1. **会话内去重**：
+   - 记录本任务中已经收集到的信号（产品名 + 事件关键词 + 来源 URL）。
+   - 当新信号与已有信号满足以下任一条件时，视为重复：
+     a. 产品名相同且事件描述相似度 > 80%（基于 Jaccard 或关键词重叠）。
+     b. URL 相同。
+     c. 不同 URL 但标题核心短语相同（例如"Tinder 推出 AI 推荐" vs "Tinder 发布 AI 推荐功能"）。
 
-1. **记录已收集信号**：维护本任务中已收集信号列表（产品名 + 事件关键词 + 来源 URL）。
-2. **重复判定**：当新信号与已有信号满足以下任一条件时，视为重复：
-   - **a. 产品名相同且事件描述相似度 > 80%**（基于关键词重叠判断，如 "Tinder 推出 AI 推荐" vs "Tinder 发布 AI 推荐功能"）。
-   - **b. URL 相同**。
-   - **c. 不同 URL 但标题核心短语相同**（提取标题中去掉介词/冠词后的名词短语比对）。
-3. **重复处理**：
+2. **重复处理**：
    - 保留时间戳最新的那个信号。
-   - 若多个来源报道同一事件，合并为一条，在「📌 新变化」末尾附加 `（另见：[其他来源名]）`。
-4. **跨天去重**：对于过去 3 天内已经报告过的同一产品事件，不再重复输出，除非有**重大进展**（新增功能上线、数据披露、官方声明变化）。判断标准：新报道中出现此前未提及的具体信息。
+   - 若多个来源报道同一事件，合并为一条，在"新变化"末尾附加 `（另见：其他来源）`。
 
-### 输出示例
+3. **跨天去重（长期记忆）**：
+   - 对于过去 3 天内已经报告过的同一产品事件，不再重复输出，除非有**重大进展**（需人工判断，技能中可简单规则：新词出现或数据变化）。此功能可选，初期暂不实现。
+
+4. **输出示例**：
 
 ```
 📌 新变化
-Tinder 上线 AI 推荐功能，基于聊天行为推荐匹配对象。（另见：TechCrunch）
+宣布取消滑动匹配 + 女性先发消息规则，推出 AI 红娘「Bee」。（另见：Bloomberg, TechCrunch, Engadget）
 
-🟢 最新 · 2026-05-22 报道
+🟠 近30天 · 来自 2026-05-11 报道
 ```
+
+> 注意：「另见」只标注主流科技媒体或官方来源（Bloomberg/TechCrunch/NYT/36氪等），不标注 SEO 采集站、个人博客、论坛帖。
 
 ## 🔧 Execution method
 
@@ -263,8 +267,8 @@ See `references/ai-social-signals-may2026.md` for AI social product frameworks (
 
 **新鲜度徽章 CSS class 对照：**
 - `🟢 最新` → `badge-green`
-- `🟡 近 7 天` → `badge-yellow`
-- `🟠 近 30 天` → `badge-orange`
+- `🟡 近7天` → `badge-yellow`
+- `🟠 近30天` → `badge-orange`
 - `🔵 官方最新` → `badge-blue`
 
 ### 发布到 HTML Manager
@@ -290,7 +294,7 @@ The cron prompt must be fully self-contained (no user present during cron runs).
 - Navigate to 3-5 press rooms via browser
 - Extract product changes
 - Output Format B (5-item WeChat brief)
-- **同时生成 HTML 版本并发布到 HTML Manager**（见上方「📄 HTML 版本生成 & 发布」）
+- **⚠️ 必须同时生成 HTML 版本并发布到 HTML Manager**（见上方「📄 HTML 版本生成 & 发布」）。每次 cron 运行必须执行：生成 HTML → 复制到 `~/ai-artifacts/html/inbox/` → 验证 http://localhost:3000 可见。此项不可跳过，是任务的必选输出。
 
 ## ✅ Verification
 
