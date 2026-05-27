@@ -1,6 +1,6 @@
 ---
 name: product-intelligence-brief
-version: "0.8.1"  # 0.8.1: HTML 生成改为强制性——每次 cron 必须执行，不可跳过
+version: "0.9.0"  # 0.9.0: 信号追踪库(signal-tracker.json)去重窗口扩至14天, 强制前置加载+后置更新
 description: Daily 3-signal (or 5-item WeChat brief) strategic intelligence for a social/dating product PM. Curates actionable signals from AI-native products, social app mechanics, and youth behavior shifts.
 author: hermes-agent
 tags: [intelligence, signals, social-product, pm, daily-brief, dating, wechat-morning-brief]
@@ -87,7 +87,7 @@ Used when the user asks for "社交产品玩法雷达" or "微信晨报". Output
 - 来源链接必须真实可点击，禁止编造 URL
 - 每条末尾必须附加 `🕐 [新鲜度标记] · [时间来源]`，新鲜度按 ⏱️ 时间约束规则判定
 - 同一事件被多个来源报道时，在「📌 新变化」末尾合并标注 `（另见：[来源名]）`
-- 过去 3 天内已报告过的同一产品事件不再重复输出，除非有重大进展
+- 跨天去重窗口已扩大至 14 天（由 `references/signal-tracker.json` 控制），同一产品事件在 14 天内不再重复输出，除非有重大进展（标注「🔄 跟进」）
 - **不同产品必须独立成条**：禁止仅因属于同一产品类别而合并为一条。典型错误：把 Replika 和 Character.AI 合成一条「AI 陪伴产品动态」——两者产品机制不同，必须分开独立分析
 
 ## 📡 Signal source priority
@@ -127,12 +127,62 @@ Used when the user asks for "社交产品玩法雷达" or "微信晨报". Output
      b. URL 相同。
      c. 不同 URL 但标题核心短语相同（例如"Tinder 推出 AI 推荐" vs "Tinder 发布 AI 推荐功能"）。
 
-2. **重复处理**：
+3. **重复处理**：
    - 保留时间戳最新的那个信号。
-   - 若多个来源报道同一事件，合并为一条，在"新变化"末尾附加 `（另见：其他来源）`。
+   - 若多个来源报道同一事件，合并为一条，在「📌 新变化」末尾附加 `（另见：[其他来源名]）`。
+4. **跨天去重（强制使用信号追踪库）**：生成日报前，必须先加载 `references/signal-tracker.json`，将所有候选信号与库中 `signals` 数组逐一比对。比对方式：候选信号的产品名 + 事件 `key_phrases` 与库中记录的关键词重叠判断。满足以下任一条件时视为重复：
+   - **a. 产品名相同且 `key_phrases` 中 ≥ 3 个关键词匹配**
+   - **b. 任一 `source_urls` 与库中相同**
+   - **c. 事件核心描述相似度 > 80%（基于关键词重叠）
+5. **去重窗口**：默认 14 天（由 `signal-tracker.json` 的 `dedup_window_days` 控制）。14 天窗口比原 3 天规则更严格，因为用户反馈 5-6 天前的信号仍会体感重复。
+6. **重大进展例外**：即使命中去重，若新报道中出现此前未提及的具体信息（新增功能上线、数据披露、官方声明变化），仍可输出，但需在卡片中明确标注「🔄 跟进」。
+7. **后置更新**：日报生成完成后，必须将本日输出的所有信号追加到 `signal-tracker.json` 的 `signals` 数组中，并更新 `last_updated` 字段。
 
-3. **跨天去重（长期记忆）**：
-   - 对于过去 3 天内已经报告过的同一产品事件，不再重复输出，除非有**重大进展**（需人工判断，技能中可简单规则：新词出现或数据变化）。此功能可选，初期暂不实现。
+## 📋 信号追踪库（Signal Tracker）
+
+**位置：** `references/signal-tracker.json`
+
+**数据结构：**
+```json
+{
+  "version": "1.0.0",
+  "last_updated": "2026-05-27",
+  "dedup_window_days": 14,
+  "signals": [
+    {
+      "product": "抖音",
+      "event": "火星经济闭环形成",
+      "date_reported": "2026-05-27",
+      "source_urls": ["https://..."],
+      "key_phrases": ["火星货币", "星光商城", "付费增值", "皮肤到期"]
+    }
+  ]
+}
+```
+
+**使用流程（每次生成必须执行）：**
+
+```
+[前置] load signal-tracker.json → 候选信号逐一比对 → 过滤已报道信号
+  ↓
+[生成] 按 ⏱️ 时间约束 + 🔗 去重规则输出 5 条
+  ↓
+[后置] 将本日输出信号追加到 signal-tracker.json → 更新 last_updated
+```
+
+**判定逻辑伪代码：**
+```
+for candidate in candidates:
+    for history in tracker.signals:
+        if candidate.product == history.product:
+            overlap = len(set(candidate.key_phrases) & set(history.key_phrases))
+            if overlap >= 3: → 视为重复，过滤
+            if candidate.source_url in history.source_urls: → 视为重复，过滤
+        if days_since(history.date_reported) > dedup_window_days:
+            continue  # 超出窗口，不再比较
+```
+
+### 输出示例
 
 4. **输出示例**：
 
@@ -210,11 +260,15 @@ See `references/social-product-press-rooms.md` for the full directory of:
 
 See `references/ai-social-signals-may2026.md` for AI social product frameworks (three-paths model), Douyin social monetization playbook, and additional 36kr search patterns for Chinese social products.
 
+See `references/signal-tracker.json` for the historical signal database used for cross-day deduplication. **Must be loaded before every brief generation and updated after.** See `references/dedup-execution-may2026.md` for a complete dedup execution record with date-verification pitfalls.
+
 ## ⚠️ Pitfalls
 
 - **Ignore generic AI news** (model releases, funding rounds) unless directly impacting social product mechanics
 - **Avoid "watch this space" endings** — every signal must have a do-this-week action
 - **Search engines are not reliable** — Bing/Google/DuckDuckGo all trigger Cloudflare/CAPTCHA after a few requests. Prefer direct press room navigation.
+- **🔴 CRITICAL — NEVER recycle old signals as "new".** Before outputting ANY signal, verify its actual publication date. The user sees these daily and will immediately notice repeats. If a signal's source article is older than 7 days, it almost certainly appeared in a previous brief. The `references/ai-social-signals-may2026.md` file is a running log of previously reported signals — check it before finalizing the brief. If a product+event pair already exists in that file, skip it unless there is genuinely new information (new data, new feature launch, new official statement) that postdates the reference file entry.
+- **Age sanity check:** After collecting signals, review each candidate's date. Any signal sourced from an article > 30 days old is a red flag — it was almost certainly already reported. Only include it if you can confirm (via session_search) that it has NOT appeared in any prior brief, AND the event is still unfolding.
 - **Browser IS the default**, not curl — this is the reverse of the original assumption. Official press rooms have clean, structured content.
 - **3-4 product press rooms is enough** per brief. Don't over-scrape. Value is in synthesis, not exhaustiveness.
 - **For the WeChat brief format**: do NOT output search logs/process — only the final formatted brief.
@@ -227,6 +281,12 @@ See `references/ai-social-signals-may2026.md` for AI social product frameworks (
 - **NEVER fabricate or guess article URLs.** After clicking into a 36kr article, always run `browser_console(expression='window.location.href')` to extract the real URL before using it in output. The 36kr article URLs follow the pattern `https://36kr.com/p/<numeric_id>` and cannot be guessed from titles — guessed URLs return 404. Fake URLs break mobile reading in WeChat. Verified 2026-05-19: `/p/3098133128583425` was a guess that returned "数据不存在或已被删除". Real URLs for the same articles were `/p/3787907674053634` and `/p/3799923753825024`.
 - **36kr article pages are unstable via browser.** Clicking into individual 36kr articles via `browser_click` frequently returns ERR_CONNECTION_RESET ("连接已重置"), even though the search listing page loads fine. Instead of clicking into articles, use `browser_console` to extract the numeric ID from search result links, then call `web_extract` on the mobile URL `https://m.36kr.com/p/<id>`. The mobile URL format works reliably with web_extract and returns full article content. Verified 2026-05-20: browser navigation to 36kr article returned "连接已重置", but `web_extract('https://m.36kr.com/p/3799120416791808')` returned the complete article.
 - **Character.AI blog is intermittently unreachable.** `blog.character.ai` returned ERR_CONNECTION_RESET on multiple attempts (both article pages and the blog listing). This appears to be a location-based access restriction rather than a permanent outage. Use `web_search` with "Character.AI" + specific feature keywords, then `web_extract` on found links as the primary fallback. Do not rely on browser navigation to Character.AI blog as the sole data source.
+- **DO NOT skip the signal tracker.** Before generating, always load `references/signal-tracker.json` and cross-check all candidates. After generating, always append today's signals. Failure to do this caused repeated signals (Bumble swipe removal, Tinder Sparks, Douyin 世界广场) in the May 27 report attempt, forcing a full regeneration. The tracker is the single source of truth for cross-day dedup — treat it as mandatory infrastructure, not optional reference.
+- **Search results often surface old articles that appear fresh.** Always verify the actual publication date of every article before including it as a signal. Common traps: 伊对 IPO 文章（4月2日，55天前看似在窗口内实际已超30天）、Bumble AI features（2月26日，90天前）、Character.AI minor ban（2025年10月，6个月以上）。当 `web_extract` 返回内容时，检查页面中的日期标记（如 "2026-03-16" 底部时间戳），而非仅依赖搜索结果摘要。
+- **同一产品的不同角度可能来自不同时间窗口的源。** 例如：36kr 3月16日文章覆盖「AI精灵迁移策略」，17173 5月21日文章覆盖「火星货币变现机制」。两者都有效，但应优先使用最近期的源作为主引用，旧源仅作背景补充。选择时间最新、信息最具体的源作为该条信号的 🔗 来源链接。
+- **非主流科技媒体也可提供领先信号。** Snapchat AI Sponsored Snaps 最初在 bloompakistan.com（巴基斯坦商业媒体）被报道，早于 TechCrunch 等主流科技媒体。不要仅依赖 TechCrunch/The Verge/NYT；地区性商业媒体和社交平台（Facebook/Reddit）上的讨论可能更早揭示信号。
+
+- **NYTimes, WSJ, and other paywalled news sources return truncated content via web_extract.** JavaScript-gated articles (e.g., nytimes.com) come back with only the visible intro paragraphs and a paywall overlay — the meat of the article is lost. For these sources: (a) search for the same story on non-paywalled outlets (NYPost, ABC7, TechCrunch, Mashable, PCMag) that syndicated the news; (b) use the paywalled URL only as a topic confirmation signal, then `web_extract` the syndicated version for actual content. Verified 2026-05-27: NYT Bumble article returned only intro + "We are having trouble retrieving the article content" — full details came from NYPost and ABC7 syndicated versions.
 
 ## 📄 HTML 版本生成 & 发布
 
@@ -290,16 +350,26 @@ cp "$HTML_FILE" "$INBOX_DIR/"
 This user runs the "社交产品玩法雷达" daily at 8:30 AM Beijing time with the WeChat brief format.
 
 The cron prompt must be fully self-contained (no user present during cron runs). It should:
+- **Step 0 (MANDATORY)**: Load `references/signal-tracker.json` and use it to filter candidates before searching
 - Load `references/social-product-press-rooms.md` for URL directory
 - Navigate to 3-5 press rooms via browser
 - Extract product changes
 - Output Format B (5-item WeChat brief)
-- **⚠️ 必须同时生成 HTML 版本并发布到 HTML Manager**（见上方「📄 HTML 版本生成 & 发布」）。每次 cron 运行必须执行：生成 HTML → 复制到 `~/ai-artifacts/html/inbox/` → 验证 http://localhost:3000 可见。此项不可跳过，是任务的必选输出。
+- **同时生成 HTML 版本并发布到 HTML Manager**（见上方「📄 HTML 版本生成 & 发布」）
+- **Step N (MANDATORY)**: Update `references/signal-tracker.json` with today's output signals
 
 ## ✅ Verification
+
+**MANDATORY — run these checks before output. Do NOT skip.**
+
+### Freshness gate (MUST PASS)
+1. **Check reference file**: Load `references/ai-social-signals-may2026.md`. Scan for each candidate signal's product name and event keywords. Any match → flag as potential repeat.
+2. **Age check**: For each candidate, verify the source article date. If > 7 days old → confirm via session_search that it hasn't appeared in recent briefs. If > 30 days old → drop unless genuinely newsworthy and confirmed not previously reported.
+3. **Self-audit**: Count how many of your 5 signals are sourced from articles published within the last 7 days. Target: at least 3 of 5 should be ≤ 7 days old. If less, go back and search again.
 
 After generating a brief:
 - **For Format A**: "Does every signal have a concrete next action the PM could take this week?"
 - **For Format B**: "有没有晨报摘要？每条是否用 🔥 三级标题分隔？字段是否独占一行、无大段文字？来源链接是否真实？"
+- **去重验证**: "所有候选信号是否已经过 `signal-tracker.json` 比对？本日信号是否已追加到追踪库？"
 - **AI social signals**: Classify each AI social signal into the three-paths framework — was the analysis path-correct? If a new path emerges, update the framework reference.
 - **Youth behavior signals**: Look for "self-made rituals" evidence (users creating culture around product features) — this is a stronger engagement signal than raw DAU numbers.

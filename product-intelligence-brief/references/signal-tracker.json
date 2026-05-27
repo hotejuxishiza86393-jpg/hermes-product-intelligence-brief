@@ -1,0 +1,99 @@
+{
+  "version": "1.0.0",
+  "description": "社交产品雷达历史信号追踪库 — 每条日报生成前必须先遍历本库进行跨天去重",
+  "last_updated": "2026-05-27",
+  "dedup_window_days": 14,
+  "signals": [
+    {
+      "product": "多闪/抖音",
+      "event": "小火人DAU破亿，合养精灵玩法引爆社交",
+      "date_reported": "2026-05-19",
+      "source_urls": ["https://m.36kr.com/p/3787907674053634", "https://m.36kr.com/p/3799923753825024"],
+      "key_phrases": ["小火人", "DAU破亿", "合养", "AI精灵", "星光商城", "多闪月活"]
+    },
+    {
+      "product": "Pengu",
+      "event": "双人合养AI企鹅，全球用户超1500万，腾讯跟投A轮",
+      "date_reported": "2026-05-19",
+      "source_urls": [],
+      "key_phrases": ["Pengu", "合养", "AI企鹅", "1500万", "Accel", "腾讯"]
+    },
+    {
+      "product": "Second Me",
+      "event": "深度人格建模AI分身，蚂蚁领投Pre-A轮",
+      "date_reported": "2026-05-19",
+      "source_urls": [],
+      "key_phrases": ["Second Me", "AI分身", "心识宇宙", "蚂蚁", "Pre-A"]
+    },
+    {
+      "product": "ELYS",
+      "event": "5分钟生成AI分身自动社交破冰，阿里3000万美元A轮",
+      "date_reported": "2026-05-19",
+      "source_urls": [],
+      "key_phrases": ["ELYS", "AI分身", "阿里", "3000万", "赛博分身"]
+    },
+    {
+      "product": "Teamily AI",
+      "event": "AI以群成员身份加入人类群聊互动",
+      "date_reported": "2026-05-19",
+      "source_urls": [],
+      "key_phrases": ["Teamily", "AI群成员", "群聊"]
+    },
+    {
+      "product": "Bumble",
+      "event": "宣布取消滑动功能、取消女性先发消息规则，转向AI匹配助手Bee",
+      "date_reported": "2026-05-22",
+      "source_urls": ["https://www.nytimes.com/2026/05/14/well/bumble-swipe-feature-online-dating-apps.html"],
+      "key_phrases": ["Bumble", "取消滑动", "取消swipe", "Bee", "AI匹配", "女性先发"]
+    },
+    {
+      "product": "抖音/多闪",
+      "event": "小火人DAU破亿，社交分享81.6%流量，世界广场派对游戏上线",
+      "date_reported": "2026-05-22",
+      "source_urls": ["https://view.inews.qq.com/a/20260307A06Y5D00"],
+      "key_phrases": ["小火人", "DAU破亿", "世界广场", "派对游戏", "社交分享"]
+    },
+    {
+      "product": "Soul",
+      "event": "联合复旦发布2026社交趋势报告：搭子模块化社交、AI精神股东、人生合伙人",
+      "date_reported": "2026-05-22",
+      "source_urls": ["https://m.thepaper.cn/newsDetail_forward_32245707"],
+      "key_phrases": ["Soul", "复旦", "社交趋势", "搭子", "精神股东", "人生合伙人"]
+    },
+    {
+      "product": "抖音",
+      "event": "火星经济闭环：星光商城付费增值、火星货币任务系统、皮肤30天到期、代练市场月均50元",
+      "date_reported": "2026-05-27",
+      "source_urls": ["https://news.17173.com/content/05212026/070106540.shtml"],
+      "key_phrases": ["抖音", "火星货币", "星光商城", "付费增值", "皮肤到期", "代练"]
+    },
+    {
+      "product": "Snapchat",
+      "event": "AI Sponsored Snaps上线，品牌AI代理进入Chat对话层",
+      "date_reported": "2026-05-27",
+      "source_urls": ["https://bloompakistan.com/snapchat-brings-ai-snaps-straight-to-chats"],
+      "key_phrases": ["Snapchat", "AI Sponsored Snaps", "品牌代理", "Chat", "对话层广告"]
+    },
+    {
+      "product": "Apple App Store",
+      "event": "审核新规：随机/匿名聊天App列入可无通知下架，匿名本身被认定为结构性风险",
+      "date_reported": "2026-05-27",
+      "source_urls": ["https://www.storyboard18.com/digital/apple-tightens-app-store-rules-says-anonymous-chat-apps-can-be-removed-without-notice-89096.htm"],
+      "key_phrases": ["Apple", "App Store", "匿名聊天", "无通知下架", "审核新规", "随机匹配"]
+    },
+    {
+      "product": "Replika",
+      "event": "全面转型情绪健康工具，€500万GDPR罚款后去掉浪漫模式，Proactive Messaging上线，Alpha模型待发",
+      "date_reported": "2026-05-27",
+      "source_urls": ["https://aicompanionguides.com/blog/replika-review"],
+      "key_phrases": ["Replika", "转型", "情绪健康", "GDPR罚款", "Proactive Messaging", "Alpha模型"]
+    },
+    {
+      "product": "千岛",
+      "event": "零AI功能月活1152万同比+36.9%，成为Q1增速最快社交平台",
+      "date_reported": "2026-05-27",
+      "source_urls": ["https://www.tmtpost.com/7979921.html"],
+      "key_phrases": ["千岛", "零AI", "月活1152万", "增速最快", "兴趣社区", "潮玩"]
+    }
+  ]
+}
